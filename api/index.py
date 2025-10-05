@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 import json
 import os
 import numpy as np
@@ -11,33 +10,32 @@ telemetry_file_path = os.path.join(os.path.dirname(__file__), "telemetry.json")
 with open(telemetry_file_path, "r") as f:
     telemetry_list = json.load(f)
 
-# Group by region
 telemetry_by_region = {}
 for record in telemetry_list:
     telemetry_by_region.setdefault(record["region"], []).append(record)
 
 @app.api_route("/analytics", methods=["POST", "OPTIONS"])
 async def analytics(request: Request):
-    # Handle preflight OPTIONS request
-    if request.method == "OPTIONS":
-        response = JSONResponse({"message": "CORS preflight OK"})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*"
+    }
 
-    # Handle POST
+    # OPTIONS preflight
+    if request.method == "OPTIONS":
+        return {}, 200, headers
+
+    # POST request
     try:
         data = await request.json()
-    except Exception:
-        response = JSONResponse({"error": "Invalid JSON"}, status_code=400)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        return response
+    except:
+        return {"error": "Invalid JSON"}, 400, headers
 
     regions = data.get("regions", [])
     threshold = data.get("threshold_ms", 0)
-
     results = {}
+
     for region in regions:
         region_data = telemetry_by_region.get(region, [])
         if not region_data:
@@ -54,11 +52,7 @@ async def analytics(request: Request):
             "breaches": sum(1 for x in latencies if x > threshold)
         }
 
-    response = JSONResponse(content=results)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
+    return results, 200, headers
 
 @app.get("/")
 def home():
