@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Enable CORS for all origins
+# ✅ Enable CORS for all origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -11,21 +11,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Default route for testing
 @app.get("/")
 def read_root():
     return {"message": "FastAPI running successfully on Vercel"}
 
-# POST route for analytics
 @app.post("/analytics")
 async def analytics(request: Request):
     data = await request.json()
     regions = data.get("regions", [])
     threshold = data.get("threshold_ms", 0)
-
-    # Simple mock response to verify POST works
     return {
         "regions_received": regions,
         "threshold": threshold,
-        "status": "POST endpoint working "
+        "status": "POST endpoint working ✅"
     }
