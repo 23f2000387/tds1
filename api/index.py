@@ -1,25 +1,27 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import json
 import numpy as np
+import json
+import os
 
 app = FastAPI()
 
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all domains
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow GET, POST, OPTIONS, etc.
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Load telemetry data from JSON
-with open("vercel.json", "r") as f:
+# Load telemetry data from file
+telemetry_file_path = os.path.join(os.path.dirname(__file__), "telemetry.json")
+with open(telemetry_file_path, "r") as f:
     telemetry_list = json.load(f)
 
-# Preprocess: group data by region
+# Preprocess: group by region
 telemetry_by_region = {}
 for record in telemetry_list:
     region = record["region"]
@@ -47,7 +49,6 @@ async def analytics(request: Request):
     threshold = data.get("threshold_ms", 0)
 
     results = {}
-
     for region in regions:
         region_data = telemetry_by_region.get(region, [])
         if not region_data:
@@ -62,16 +63,11 @@ async def analytics(request: Request):
         latencies = [x["latency_ms"] for x in region_data]
         uptimes = [x["uptime_pct"] for x in region_data]
 
-        avg_latency = float(np.mean(latencies))
-        p95_latency = float(np.percentile(latencies, 95))
-        avg_uptime = float(np.mean(uptimes))
-        breaches = sum(1 for x in latencies if x > threshold)
-
         results[region] = {
-            "avg_latency": round(avg_latency, 2),
-            "p95_latency": round(p95_latency, 2),
-            "avg_uptime": round(avg_uptime, 2),
-            "breaches": breaches
+            "avg_latency": round(float(np.mean(latencies)), 2),
+            "p95_latency": round(float(np.percentile(latencies, 95)), 2),
+            "avg_uptime": round(float(np.mean(uptimes)), 2),
+            "breaches": sum(1 for x in latencies if x > threshold)
         }
 
     response = JSONResponse(content=results)
