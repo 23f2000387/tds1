@@ -16,27 +16,23 @@ telemetry_by_region = {}
 for record in telemetry_list:
     telemetry_by_region.setdefault(record["region"], []).append(record)
 
-# Health check
-@app.get("/")
-def home():
-    return {"message": "FastAPI running successfully on Vercel"}
-
-# Handle preflight OPTIONS request
-@app.options("/analytics")
-def analytics_options():
-    response = JSONResponse({"message": "CORS preflight OK"})
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
-
-# POST endpoint
-@app.post("/analytics")
+@app.api_route("/analytics", methods=["POST", "OPTIONS"])
 async def analytics(request: Request):
+    # Handle preflight OPTIONS request
+    if request.method == "OPTIONS":
+        response = JSONResponse({"message": "CORS preflight OK"})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+    # Handle POST
     try:
         data = await request.json()
     except Exception:
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+        response = JSONResponse({"error": "Invalid JSON"}, status_code=400)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
 
     regions = data.get("regions", [])
     threshold = data.get("threshold_ms", 0)
@@ -59,8 +55,11 @@ async def analytics(request: Request):
         }
 
     response = JSONResponse(content=results)
-    # Explicitly add CORS headers for the grader
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
+
+@app.get("/")
+def home():
+    return {"message": "FastAPI running successfully on Vercel"}
