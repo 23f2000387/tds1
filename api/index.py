@@ -7,7 +7,7 @@ import os
 
 app = FastAPI()
 
-# Enable CORS
+# Enable CORS globally
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,12 +16,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load telemetry data from file
+# Load telemetry data from JSON file
 telemetry_file_path = os.path.join(os.path.dirname(__file__), "telemetry.json")
-with open(telemetry_file_path, "r") as f:
-    telemetry_list = json.load(f)
+try:
+    with open(telemetry_file_path, "r") as f:
+        telemetry_list = json.load(f)
+except Exception as e:
+    telemetry_list = []
+    print("Error loading telemetry.json:", e)
 
-# Preprocess: group by region
+# Group telemetry by region
 telemetry_by_region = {}
 for record in telemetry_list:
     region = record["region"]
@@ -29,19 +33,21 @@ for record in telemetry_list:
         telemetry_by_region[region] = []
     telemetry_by_region[region].append(record)
 
+# Health check
 @app.get("/")
 def home():
     return {"message": "FastAPI running successfully on Vercel"}
 
+# Handle preflight OPTIONS request for CORS
 @app.options("/analytics")
 def analytics_options():
-    """Handle preflight OPTIONS request for CORS"""
     response = JSONResponse({"message": "CORS preflight OK"})
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
+# POST endpoint
 @app.post("/analytics")
 async def analytics(request: Request):
     data = await request.json()
