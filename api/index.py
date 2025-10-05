@@ -1,36 +1,35 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import Response
 import json
 import os
 import numpy as np
 
 app = FastAPI()
 
-# Load telemetry data
+# Load telemetry.json
 telemetry_file = os.path.join(os.path.dirname(__file__), "telemetry.json")
 with open(telemetry_file, "r") as f:
     telemetry_list = json.load(f)
 
-# Group by region
 telemetry_by_region = {}
 for record in telemetry_list:
     telemetry_by_region.setdefault(record["region"], []).append(record)
 
+# POST + OPTIONS route
 @app.api_route("/analytics", methods=["POST", "OPTIONS"])
 async def analytics(request: Request):
-    cors_headers = {
+    headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "*"
     }
 
     if request.method == "OPTIONS":
-        return Response(content="", status_code=200, headers=cors_headers)
+        return {}, 200, headers
 
     try:
         data = await request.json()
     except:
-        return Response(content='{"error":"Invalid JSON"}', status_code=400, media_type="application/json", headers=cors_headers)
+        return {"error": "Invalid JSON"}, 400, headers
 
     regions = data.get("regions", [])
     threshold = data.get("threshold_ms", 0)
@@ -52,8 +51,9 @@ async def analytics(request: Request):
             "breaches": sum(1 for x in latencies if x > threshold)
         }
 
-    return Response(content=json.dumps(results), status_code=200, media_type="application/json", headers=cors_headers)
+    return results, 200, headers
 
+# Health check
 @app.get("/")
 def home():
     return {"message": "FastAPI running successfully on Vercel"}
